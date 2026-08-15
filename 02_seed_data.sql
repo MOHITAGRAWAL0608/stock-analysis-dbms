@@ -1,0 +1,69 @@
+-- =====================================================================
+-- 02_seed_data.sql
+-- Reference data and demo users. Run AFTER 01_schema.sql,
+-- BEFORE the Python ingestion script.
+-- =====================================================================
+
+USE stockdb;
+
+-- ---------------------------------------------------------------------
+-- Companies: NSE tickers. yfinance requires the .NS suffix, which the
+-- loader appends — store the clean symbol here.
+-- For the index demo you want 100+ tickers; extend this list.
+-- ---------------------------------------------------------------------
+INSERT INTO Companies (ticker, company_name, sector, exchange, currency) VALUES
+('RELIANCE', 'Reliance Industries Ltd',      'Energy',            'NSE', 'INR'),
+('TCS',      'Tata Consultancy Services Ltd','Information Tech',  'NSE', 'INR'),
+('INFY',     'Infosys Ltd',                  'Information Tech',  'NSE', 'INR'),
+('HDFCBANK', 'HDFC Bank Ltd',                'Financial Services','NSE', 'INR'),
+('ITC',      'ITC Ltd',                      'Consumer Goods',    'NSE', 'INR'),
+('SBIN',     'State Bank of India',          'Financial Services','NSE', 'INR'),
+('WIPRO',    'Wipro Ltd',                    'Information Tech',  'NSE', 'INR'),
+('LT',       'Larsen & Toubro Ltd',          'Construction',      'NSE', 'INR'),
+('MARUTI',   'Maruti Suzuki India Ltd',      'Automobile',        'NSE', 'INR'),
+('SUNPHARMA','Sun Pharmaceutical Ind Ltd',   'Pharmaceuticals',   'NSE', 'INR');
+
+
+-- ---------------------------------------------------------------------
+-- Users. password_hash is a bcrypt placeholder — never store plaintext.
+-- ---------------------------------------------------------------------
+INSERT INTO Users (username, email, password_hash) VALUES       
+('mohit',    'mohit@example.com',    '$2b$12$abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUVWXYZ012345'),
+('gurirath', 'gurirath@example.com', '$2b$12$abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUVWXYZ012345');
+
+
+-- ---------------------------------------------------------------------
+-- Portfolios and holdings for the stored-procedure demo
+-- ---------------------------------------------------------------------
+INSERT INTO Portfolios (user_id, portfolio_name, cash_balance) VALUES
+(1, 'Core Long Term', 150000.00),
+(1, 'Momentum Swing',  50000.00),
+(2, 'Balanced',       100000.00);
+
+INSERT INTO PortfolioHoldings (portfolio_id, company_id, quantity, avg_buy_price) VALUES
+(1, 1,  40, 2450.5000),
+(1, 2,  25, 3610.0000),
+(1, 4,  60, 1520.7500),
+(2, 3, 100, 1480.0000),
+(2, 5, 200,  415.2500),
+(3, 1,  15, 2600.0000),
+(3, 6,  80,  790.0000);
+
+INSERT INTO Watchlists (user_id, company_id) VALUES
+(1, 7), (1, 8), (2, 9), (2, 10);
+
+
+-- ---------------------------------------------------------------------
+-- Model registry entry. The ML side inserts its own rows after training;
+-- this one exists so Predictions has a valid FK target during testing.
+-- ---------------------------------------------------------------------
+INSERT INTO Models (model_name, algorithm, trained_on_date, train_start, train_end,
+                    hyperparams, test_accuracy)
+VALUES ('rf_baseline_v1', 'RandomForest', CURRENT_DATE, '2019-01-01', '2024-12-31',
+        JSON_OBJECT('n_estimators', 300, 'max_depth', 12, 'random_state', 42),
+        0.5620);
+
+SELECT 'Seed complete' AS status,
+       (SELECT COUNT(*) FROM Companies) AS companies,
+       (SELECT COUNT(*) FROM Users)     AS users,
+       (SELECT COUNT(*) FROM Portfolios) AS portfolios;
