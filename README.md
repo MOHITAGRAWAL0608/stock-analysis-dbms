@@ -25,6 +25,15 @@ pip install yfinance pandas mysql-connector-python
 
 Credentials come from environment variables — nothing secret is stored in the code.
 
+**Primary method:** copy `.env.example` to `.env` in the project root and fill in your real password. `python-dotenv` loads it automatically, so `DB_PASSWORD` (and any other variables in the file) are set before scripts run — no manual `$env:`/`export` needed.
+
+```bash
+cp .env.example .env
+# then edit .env and set DB_PASSWORD (and DB_HOST/DB_USER/DB_NAME if needed)
+```
+
+**Fallback:** if you'd rather not use a `.env` file, set the environment variables manually before running any script.
+
 ```powershell
 # PowerShell
 $env:DB_PASSWORD="your_password"
