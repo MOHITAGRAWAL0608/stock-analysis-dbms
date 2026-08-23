@@ -3,19 +3,17 @@
 -- Reference data and demo users. Run AFTER 01_schema.sql,
 -- BEFORE the Python ingestion script.
 --
--- NOTE: Companies insert removed from this run — the 10 base tickers
--- already loaded successfully before this file failed partway through
--- on the first attempt, and 02b_expand_tickers.sql has since brought
--- the table to 140 rows. Re-inserting them here would just hit
--- duplicate-key errors on ticker.
+-- NOTE: Companies insert removed from this file — the base tickers are
+-- already covered by 02b_expand_tickers.sql, which brings the table to
+-- 140 rows on its own. Re-inserting them here would duplicate-key on
+-- ticker.
 -- =====================================================================
 
 USE stockdb;
 
 -- ---------------------------------------------------------------------
 -- Users. password_hash is a bcrypt placeholder — never store plaintext.
--- Trimmed to exactly 60 chars to fit CHAR(60) (original was 61 — that
--- off-by-one is what caused the first run to fail here).
+-- Exactly 60 chars to fit CHAR(60).
 -- ---------------------------------------------------------------------
 INSERT INTO Users (username, email, password_hash) VALUES       
 ('mohit',    'mohit@example.com',    '$2b$12$abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUVWXYZ01234'),
