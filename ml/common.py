@@ -149,8 +149,8 @@ def insert_model_row(conn, model_name, algorithm, train_df, hyperparams, accurac
             train_df["trade_date"].max(),
             json.dumps(hyperparams),
             round(accuracy, 4),
-            round(mae, 6),
-            round(rmse, 6),
+            round(mae, 6) if mae is not None else None,
+            round(rmse, 6) if rmse is not None else None,
         ),
     )
     conn.commit()

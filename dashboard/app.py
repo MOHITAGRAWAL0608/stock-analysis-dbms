@@ -64,6 +64,46 @@ def run_query(query, params=None):
     return pd.DataFrame(rows, columns=cols)
 
 
+CONFIDENCE_THRESHOLDS = [0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90]
+BEST_RESULT_MIN_SAMPLES = 100
+
+
+@st.cache_data(ttl=60)
+def confidence_stats(model_name, threshold):
+    return run_query(
+        """
+        SELECT
+            COUNT(*) AS total_predictions,
+            SUM(CASE WHEN p.confidence >= %s THEN 1 ELSE 0 END) AS above_threshold,
+            SUM(CASE WHEN p.confidence >= %s AND p.was_correct = 1 THEN 1 ELSE 0 END) AS correct_above,
+            SUM(CASE WHEN p.confidence >= %s AND p.was_correct IS NOT NULL THEN 1 ELSE 0 END) AS scored_above
+        FROM Predictions p
+        JOIN Models m ON m.model_id = p.model_id
+        WHERE m.model_name = %s
+        """,
+        (threshold, threshold, threshold, model_name),
+    ).iloc[0]
+
+
+@st.cache_data(ttl=60)
+def find_best_result():
+    names_df = run_query("SELECT DISTINCT model_name FROM Models WHERE model_name != 'rf_baseline_v1'")
+    candidates = []
+    for name in names_df["model_name"]:
+        for t in CONFIDENCE_THRESHOLDS:
+            s = confidence_stats(name, t)
+            scored = int(s["scored_above"] or 0)
+            correct = int(s["correct_above"] or 0)
+            if scored >= BEST_RESULT_MIN_SAMPLES:
+                candidates.append({
+                    "model_name": name, "threshold": t,
+                    "accuracy": correct / scored, "n": scored,
+                })
+    if not candidates:
+        return None
+    return max(candidates, key=lambda c: c["accuracy"])
+
+
 try:
     companies_df = run_query(
         "SELECT company_id, ticker FROM Companies WHERE is_active = TRUE ORDER BY ticker"
@@ -110,6 +150,20 @@ st.divider()
 
 
 # ---------------------------------------------------------------------
+# 1a. Best result — best (model, confidence threshold) combo project-wide
+# ---------------------------------------------------------------------
+
+best = find_best_result()
+if best is not None:
+    st.success(
+        f"**Best result:** {best['model_name']} reaches **{best['accuracy']:.1%} accuracy** "
+        f"at confidence >= {best['threshold']:.2f} (n={best['n']:,} predictions)"
+    )
+
+st.divider()
+
+
+# ---------------------------------------------------------------------
 # 1b. Model comparison — every row in Models, most accurate first
 # ---------------------------------------------------------------------
 
@@ -150,26 +204,6 @@ st.divider()
 # ---------------------------------------------------------------------
 
 st.subheader("Confidence Threshold Analysis")
-
-CONFIDENCE_THRESHOLDS = [0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90]
-
-
-@st.cache_data(ttl=60)
-def confidence_stats(model_name, threshold):
-    return run_query(
-        """
-        SELECT
-            COUNT(*) AS total_predictions,
-            SUM(CASE WHEN p.confidence >= %s THEN 1 ELSE 0 END) AS above_threshold,
-            SUM(CASE WHEN p.confidence >= %s AND p.was_correct = 1 THEN 1 ELSE 0 END) AS correct_above,
-            SUM(CASE WHEN p.confidence >= %s AND p.was_correct IS NOT NULL THEN 1 ELSE 0 END) AS scored_above
-        FROM Predictions p
-        JOIN Models m ON m.model_id = p.model_id
-        WHERE m.model_name = %s
-        """,
-        (threshold, threshold, threshold, model_name),
-    ).iloc[0]
-
 
 if selected_model_name is None:
     st.info("No trained models found yet.")
