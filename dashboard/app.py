@@ -77,6 +77,13 @@ st.title("Stock Analysis Dashboard")
 tickers = companies_df["ticker"].tolist()
 selected = st.sidebar.selectbox("Ticker", ["All"] + tickers)
 
+model_names_df = run_query("SELECT DISTINCT model_name FROM Models ORDER BY model_name")
+model_name_options = model_names_df["model_name"].tolist()
+selected_model_name = (
+    st.sidebar.selectbox("Select model for analysis", model_name_options)
+    if model_name_options else None
+)
+
 
 # ---------------------------------------------------------------------
 # 1. Header — latest trained model
@@ -103,6 +110,42 @@ st.divider()
 
 
 # ---------------------------------------------------------------------
+# 1b. Model comparison — every row in Models, most accurate first
+# ---------------------------------------------------------------------
+
+st.subheader("Model Comparison")
+
+comparison_df = run_query(
+    """
+    SELECT model_name, algorithm, test_accuracy, test_mae, test_rmse
+    FROM (
+        SELECT model_name, algorithm, test_accuracy, test_mae, test_rmse,
+               ROW_NUMBER() OVER (
+                   PARTITION BY model_name ORDER BY trained_on_date DESC, model_id DESC
+               ) AS rn
+        FROM Models
+        WHERE model_name != 'rf_baseline_v1'
+    ) latest
+    WHERE rn = 1
+    ORDER BY test_accuracy DESC
+    """
+)
+
+if comparison_df.empty:
+    st.info("No trained models found yet.")
+else:
+    st.dataframe(comparison_df, width="stretch", hide_index=True)
+
+    bar_fig = px.bar(comparison_df, x="model_name", y="test_accuracy", color="algorithm")
+    bar_fig.update_yaxes(tickformat=".1%", title="Test accuracy")
+    bar_fig.update_xaxes(title="Model")
+    bar_fig.update_layout(height=350, margin=dict(t=40))
+    st.plotly_chart(bar_fig, width="stretch")
+
+st.divider()
+
+
+# ---------------------------------------------------------------------
 # 2. Prediction accuracy
 # ---------------------------------------------------------------------
 
@@ -120,14 +163,14 @@ if selected == "All":
         GROUP BY month
         ORDER BY month
         """,
-        (latest_model,),
+        (selected_model_name,),
     )
 else:
     acc_df = run_query(
         "SELECT month, total_predictions, correct_predictions, accuracy "
         "FROM vw_prediction_accuracy WHERE model_name = %s AND ticker = %s "
         "ORDER BY month",
-        (latest_model, selected),
+        (selected_model_name, selected),
     )
 
 if acc_df.empty:
@@ -212,7 +255,7 @@ else:
         WHERE c.ticker = %s AND m.model_name = %s AND p.was_correct IS NOT NULL
         ORDER BY p.trade_date
         """,
-        (selected, latest_model),
+        (selected, selected_model_name),
     )
 
     if pred_df.empty:
