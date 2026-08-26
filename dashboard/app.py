@@ -146,6 +146,70 @@ st.divider()
 
 
 # ---------------------------------------------------------------------
+# 1c. Confidence threshold analysis — for the selected model
+# ---------------------------------------------------------------------
+
+st.subheader("Confidence Threshold Analysis")
+
+CONFIDENCE_THRESHOLDS = [0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90]
+
+
+@st.cache_data(ttl=60)
+def confidence_stats(model_name, threshold):
+    return run_query(
+        """
+        SELECT
+            COUNT(*) AS total_predictions,
+            SUM(CASE WHEN p.confidence >= %s THEN 1 ELSE 0 END) AS above_threshold,
+            SUM(CASE WHEN p.confidence >= %s AND p.was_correct = 1 THEN 1 ELSE 0 END) AS correct_above,
+            SUM(CASE WHEN p.confidence >= %s AND p.was_correct IS NOT NULL THEN 1 ELSE 0 END) AS scored_above
+        FROM Predictions p
+        JOIN Models m ON m.model_id = p.model_id
+        WHERE m.model_name = %s
+        """,
+        (threshold, threshold, threshold, model_name),
+    ).iloc[0]
+
+
+if selected_model_name is None:
+    st.info("No trained models found yet.")
+else:
+    min_confidence = st.slider("Minimum confidence", min_value=0.5, max_value=0.9, value=0.6, step=0.05)
+
+    stats = confidence_stats(selected_model_name, min_confidence)
+    total = int(stats["total_predictions"])
+    above = int(stats["above_threshold"] or 0)
+    correct_above = int(stats["correct_above"] or 0)
+    scored_above = int(stats["scored_above"] or 0)
+    fraction = (above / total) if total else 0
+    accuracy_at_threshold = (correct_above / scored_above) if scored_above else None
+
+    c1, c2 = st.columns(2)
+    c1.metric(
+        "Accuracy above threshold",
+        f"{accuracy_at_threshold:.1%}" if accuracy_at_threshold is not None else "n/a",
+    )
+    c2.metric("Predictions above threshold", f"{above:,}")
+    st.caption(f"{above:,} of {total:,} predictions ({fraction:.1%}) meet this threshold")
+
+    threshold_rows = []
+    for t in CONFIDENCE_THRESHOLDS:
+        s = confidence_stats(selected_model_name, t)
+        sc = int(s["scored_above"] or 0)
+        ca = int(s["correct_above"] or 0)
+        threshold_rows.append({"threshold": t, "accuracy": (ca / sc) if sc else None})
+    threshold_df = pd.DataFrame(threshold_rows)
+
+    threshold_fig = px.line(threshold_df, x="threshold", y="accuracy", markers=True)
+    threshold_fig.update_yaxes(tickformat=".0%", title="Accuracy")
+    threshold_fig.update_xaxes(title="Confidence threshold", tickformat=".0%")
+    threshold_fig.update_layout(height=350, margin=dict(t=40))
+    st.plotly_chart(threshold_fig, width="stretch")
+
+st.divider()
+
+
+# ---------------------------------------------------------------------
 # 2. Prediction accuracy
 # ---------------------------------------------------------------------
 
