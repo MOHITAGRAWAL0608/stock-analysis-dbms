@@ -86,20 +86,20 @@ selected_model_name = (
 
 
 # ---------------------------------------------------------------------
-# 1. Header — latest trained model
+# 1. Header — currently selected model (sidebar dropdown)
 # ---------------------------------------------------------------------
 
 model_df = run_query(
     "SELECT model_name, algorithm, trained_on_date, test_accuracy, test_mae, test_rmse "
-    "FROM Models ORDER BY trained_on_date DESC, model_id DESC LIMIT 1"
+    "FROM Models WHERE model_name = %s "
+    "ORDER BY trained_on_date DESC, model_id DESC LIMIT 1",
+    (selected_model_name,),
 )
 
 if model_df.empty:
-    latest_model = None
     st.info("No trained model found yet — run `python ml/train_model.py` first.")
 else:
     m = model_df.iloc[0]
-    latest_model = m["model_name"]
     st.caption(f"{m['model_name']} ({m['algorithm']}) — trained {m['trained_on_date']}")
     c1, c2, c3 = st.columns(3)
     c1.metric("Test accuracy", f"{float(m['test_accuracy']):.2%}" if m["test_accuracy"] is not None else "n/a")
