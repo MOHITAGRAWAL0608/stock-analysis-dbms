@@ -82,17 +82,33 @@ def build_labels(df):
 # 3. Time-based train/test split
 # ---------------------------------------------------------------------
 
+def _date_cutoff_split(df, fraction):
+    unique_dates = np.sort(df["trade_date"].unique())
+    cutoff_date = unique_dates[int(len(unique_dates) * fraction)]
+    part1 = df[df["trade_date"] < cutoff_date]
+    part2 = df[df["trade_date"] >= cutoff_date]
+    return part1, part2, cutoff_date
+
+
 def time_split(df):
     print("[3] Splitting train/test by date (80/20, no shuffling) ...")
-    unique_dates = np.sort(df["trade_date"].unique())
-    cutoff_date = unique_dates[int(len(unique_dates) * 0.8)]
-
-    train_df = df[df["trade_date"] < cutoff_date]
-    test_df = df[df["trade_date"] >= cutoff_date]
+    train_df, test_df, cutoff_date = _date_cutoff_split(df, 0.8)
     print(f"    cutoff date: {cutoff_date}  (train < cutoff, test >= cutoff)")
     print(f"    train: {len(train_df):,} rows, {train_df['trade_date'].min()} to {train_df['trade_date'].max()}")
     print(f"    test:  {len(test_df):,} rows, {test_df['trade_date'].min()} to {test_df['trade_date'].max()}")
     return train_df, test_df
+
+
+def val_split(train_df, fraction=0.85):
+    """Carve a time-based validation slice out of a training set only —
+    never call this on the test set. Same date-cutoff approach as
+    time_split, generalized to an arbitrary split fraction."""
+    print(f"    Splitting validation slice by date ({int(fraction*100)}/{int(round((1 - fraction) * 100))}, no shuffling) ...")
+    fit_df, val_df, cutoff_date = _date_cutoff_split(train_df, fraction)
+    print(f"    cutoff date: {cutoff_date}  (fit < cutoff, val >= cutoff)")
+    print(f"    fit: {len(fit_df):,} rows, {fit_df['trade_date'].min()} to {fit_df['trade_date'].max()}")
+    print(f"    val: {len(val_df):,} rows, {val_df['trade_date'].min()} to {val_df['trade_date'].max()}")
+    return fit_df, val_df
 
 
 # ---------------------------------------------------------------------

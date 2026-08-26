@@ -6,3 +6,4 @@ streamlit
 plotly
 joblib
 python-dotenv
+xgboost
