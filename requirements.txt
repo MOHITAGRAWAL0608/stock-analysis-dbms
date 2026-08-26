@@ -7,3 +7,4 @@ plotly
 joblib
 python-dotenv
 xgboost
+tensorflow
